@@ -9,8 +9,7 @@ export function parseSearchParams(searchParams: URLSearchParams): SearchFilters 
     archived: searchParams.get("archived") === "1" ? true : searchParams.get("archived") === "0" ? false : undefined,
     unread: searchParams.get("unread") === "1" ? true : undefined,
     shared: searchParams.get("shared") === "1" ? true : undefined,
-    sort: (searchParams.get("sort") as SearchFilters["sort"]) || "new",
-    page: Number.parseInt(searchParams.get("page") || "1"),
+    sort: (searchParams.get("sort") as SearchFilters["sort"]) || "new"
   }
 }
 
@@ -24,7 +23,6 @@ export function buildSearchParams(filters: SearchFilters): URLSearchParams {
   if (filters.unread === true) params.set("unread", "1")
   if (filters.shared === true) params.set("shared", "1")
   if (filters.sort && filters.sort !== "new") params.set("sort", filters.sort)
-  if (filters.page && filters.page > 1) params.set("page", filters.page.toString())
 
   return params
 }
@@ -32,11 +30,6 @@ export function buildSearchParams(filters: SearchFilters): URLSearchParams {
 export function updateSearchParams(currentParams: URLSearchParams, updates: Partial<SearchFilters>): URLSearchParams {
   const currentFilters = parseSearchParams(currentParams)
   const newFilters = { ...currentFilters, ...updates }
-
-  // Reset page when filters change (except when explicitly updating page)
-  if (!("page" in updates)) {
-    newFilters.page = 1
-  }
 
   return buildSearchParams(newFilters)
 }

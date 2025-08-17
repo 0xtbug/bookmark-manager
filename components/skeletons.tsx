@@ -15,7 +15,7 @@ export function BookmarkCardSkeleton() {
         </div>
 
         {/* Preview image */}
-        <Skeleton className="aspect-video w-full rounded-md" />
+        {/* <Skeleton className="aspect-video w-full rounded-md" /> */}
 
         {/* Description */}
         <div className="space-y-2">
@@ -60,6 +60,18 @@ export function TagsSkeleton({ count = 12 }: { count?: number }) {
       {Array.from({ length: count }).map((_, i) => (
         <Skeleton key={i} className="h-6 w-16 rounded-full" />
       ))}
+    </div>
+  )
+}
+
+export function LoadingMoreSkeleton({ count = 4 }: { count?: number }) {
+  return (
+    <div className="mt-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {Array.from({ length: count }).map((_, i) => (
+          <BookmarkCardSkeleton key={i} />
+        ))}
+      </div>
     </div>
   )
 }

@@ -2,9 +2,25 @@ import { type NextRequest, NextResponse } from "next/server"
 import { LinkdingAPI } from "@/lib/linkding-api"
 import type { BookmarksResponse, SearchFilters, Bookmark } from "@/lib/types"
 
+// In-memory cache for API responses
+const apiCache = new Map<string, { data: BookmarksResponse; timestamp: number }>()
+const API_CACHE_TTL = 2 * 60 * 1000 // 2 minutes cache for API
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
+    const cacheKey = searchParams.toString()
+
+    // Check cache first
+    const cached = apiCache.get(cacheKey)
+    if (cached && Date.now() - cached.timestamp < API_CACHE_TTL) {
+      return NextResponse.json(cached.data, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
+          'Content-Type': 'application/json',
+        },
+      })
+    }
 
     // Parse query parameters
     const filters: SearchFilters = {
@@ -14,16 +30,11 @@ export async function GET(request: NextRequest) {
       unread: searchParams.get("unread") === "1" ? true : undefined,
       shared: searchParams.get("shared") === "1" ? true : undefined,
       sort: (searchParams.get("sort") as SearchFilters["sort"]) || "new",
-      page: Number.parseInt(searchParams.get("page") || "1"),
     }
 
-    const limit = Number.parseInt(searchParams.get("limit") || "20")
-    const offset = ((filters.page || 1) - 1) * limit
-
-    const linkdingResponse = await LinkdingAPI.fetchBookmarks({
+    // Fetch all bookmarks from Linkding API
+    const linkdingResponse = await LinkdingAPI.fetchAllBookmarks({
       q: filters.q,
-      limit: 100, // Fetch more to handle client-side filtering
-      offset: 0,
       archived: filters.archived,
     })
 
@@ -53,44 +64,38 @@ export async function GET(request: NextRequest) {
       return true
     })
 
-    // Apply sorting
-    bookmarks.sort((a, b) => {
-      switch (filters.sort) {
-        case "old":
-          return new Date(a.date_added).getTime() - new Date(b.date_added).getTime()
-        case "title-asc":
-          return a.title.localeCompare(b.title)
-        case "title-desc":
-          return b.title.localeCompare(a.title)
-        case "new":
-        default:
-          return new Date(b.date_added).getTime() - new Date(a.date_added).getTime()
-      }
-    })
-
-    // Apply pagination
-    const paginatedBookmarks = bookmarks.slice(offset, offset + limit)
-    const hasNext = offset + limit < bookmarks.length
-    const hasPrevious = offset > 0
-
-    const response: BookmarksResponse = {
-      results: paginatedBookmarks,
-      count: bookmarks.length,
-      next: hasNext
-        ? `${request.nextUrl.origin}${request.nextUrl.pathname}?${new URLSearchParams({
-            ...Object.fromEntries(searchParams.entries()),
-            page: String((filters.page || 1) + 1),
-          })}`
-        : null,
-      previous: hasPrevious
-        ? `${request.nextUrl.origin}${request.nextUrl.pathname}?${new URLSearchParams({
-            ...Object.fromEntries(searchParams.entries()),
-            page: String((filters.page || 1) - 1),
-          })}`
-        : null,
+    // Apply sorting with optimized comparison
+    const sortFunctions = {
+      old: (a: Bookmark, b: Bookmark) => new Date(a.date_added).getTime() - new Date(b.date_added).getTime(),
+      "title-asc": (a: Bookmark, b: Bookmark) => a.title.localeCompare(b.title),
+      "title-desc": (a: Bookmark, b: Bookmark) => b.title.localeCompare(a.title),
+      new: (a: Bookmark, b: Bookmark) => new Date(b.date_added).getTime() - new Date(a.date_added).getTime(),
     }
 
-    return NextResponse.json(response)
+    const sortFunction = sortFunctions[filters.sort || "new"]
+    bookmarks.sort(sortFunction)
+
+    // Return all bookmarks without pagination
+    const response: BookmarksResponse = {
+      results: bookmarks,
+      count: bookmarks.length,
+      next: null,
+      previous: null,
+    }
+
+    // Cache the response
+    apiCache.set(cacheKey, {
+      data: response,
+      timestamp: Date.now(),
+    })
+
+    return NextResponse.json(response, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
+        'Content-Type': 'application/json',
+        'X-Response-Time': Date.now().toString(),
+      },
+    })
   } catch (error) {
     console.error("Error fetching bookmarks:", error)
     return NextResponse.json({ error: "Failed to fetch bookmarks" }, { status: 500 })

@@ -70,7 +70,77 @@ export class LinkdingAPI {
     return response.json()
   }
 
-  static async fetchTags(
+  static async fetchAllBookmarks(
+    params: {
+      q?: string
+      archived?: boolean
+    } = {},
+  ): Promise<LinkdingBookmarksResponse> {
+    // Try to fetch a large batch first to minimize API calls
+    const initialLimit = 500
+    const firstResponse = await this.fetchBookmarks({
+      ...params,
+      limit: initialLimit,
+      offset: 0,
+    })
+
+    // If we got less than the limit, we have all bookmarks
+    if (firstResponse.results.length < initialLimit) {
+      return {
+        count: firstResponse.results.length,
+        next: null,
+        previous: null,
+        results: firstResponse.results,
+      }
+    }
+
+    // Otherwise, we need to fetch more in parallel
+    const allBookmarks = [...firstResponse.results]
+    const totalExpected = firstResponse.count || firstResponse.results.length
+    const remainingCount = totalExpected - firstResponse.results.length
+
+    if (remainingCount <= 0) {
+      return {
+        count: allBookmarks.length,
+        next: null,
+        previous: null,
+        results: allBookmarks,
+      }
+    }
+
+    // Fetch remaining bookmarks in parallel batches
+    const batchSize = 200
+    const batches = Math.ceil(remainingCount / batchSize)
+    const promises: Promise<LinkdingBookmarksResponse>[] = []
+
+    for (let i = 0; i < batches; i++) {
+      const offset = initialLimit + (i * batchSize)
+      promises.push(
+        this.fetchBookmarks({
+          ...params,
+          limit: batchSize,
+          offset,
+        })
+      )
+    }
+
+    try {
+      const responses = await Promise.all(promises)
+
+      for (const response of responses) {
+        allBookmarks.push(...response.results)
+      }
+    } catch (error) {
+      console.warn("Some parallel bookmark fetches failed, using partial data:", error)
+    }
+
+    return {
+      count: allBookmarks.length,
+      next: null,
+      previous: null,
+      results: allBookmarks,
+    }
+  }  static async fetchTags(
     params: {
       limit?: number
       offset?: number

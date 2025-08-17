@@ -46,5 +46,4 @@ export interface SearchFilters {
   unread?: boolean
   shared?: boolean
   sort?: "new" | "old" | "title-asc" | "title-desc"
-  page?: number
 }

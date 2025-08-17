@@ -1,16 +1,19 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import type { Bookmark, BookmarksResponse, SearchFilters } from "@/lib/types"
 import { buildSearchParams } from "@/lib/query-state"
+
+// In-memory cache for bookmarks
+const bookmarksCache = new Map<string, { data: BookmarksResponse; timestamp: number }>()
+const CACHE_TTL = 5 * 60 * 1000 // 5 minutes cache
 
 interface UseBookmarksResult {
   bookmarks: Bookmark[]
   loading: boolean
   error: string | null
   totalCount: number
-  hasMore: boolean
-  loadMore: () => void
+  loadingTime: number
   refresh: () => void
 }
 
@@ -19,21 +22,48 @@ export function useBookmarks(filters: SearchFilters, enabled = true): UseBookmar
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [totalCount, setTotalCount] = useState(0)
-  const [hasMore, setHasMore] = useState(false)
-  const [currentPage, setCurrentPage] = useState(1)
+  const [loadingTime, setLoadingTime] = useState(0)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   const fetchBookmarks = useCallback(
-    async (page = 1, append = false) => {
+    async () => {
       if (!enabled) return
 
+      // Cancel any ongoing requests
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+      abortControllerRef.current = new AbortController()
+
+      const startTime = performance.now()
+      const cacheKey = JSON.stringify(filters)
+
       try {
-        if (!append) {
-          setLoading(true)
-        }
         setError(null)
 
-        const searchParams = buildSearchParams({ ...filters, page })
-        const response = await fetch(`/api/bookmarks?${searchParams}`)
+        // Check cache first
+        const cached = bookmarksCache.get(cacheKey)
+        if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+          // Use cached data but still set loading for UI feedback
+          setBookmarks(cached.data.results)
+          setTotalCount(cached.data.count || 0)
+          const endTime = performance.now()
+          setLoadingTime(Math.round(endTime - startTime))
+          setLoading(false)
+          return
+        }
+
+        setLoading(true)
+
+        const searchParams = buildSearchParams(filters)
+        const response = await fetch(`/api/bookmarks?${searchParams}`, {
+          signal: abortControllerRef.current.signal,
+          // Add performance headers
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache',
+          },
+        })
 
         if (!response.ok) {
           throw new Error("Failed to fetch bookmarks")
@@ -41,18 +71,21 @@ export function useBookmarks(filters: SearchFilters, enabled = true): UseBookmar
 
         const data: BookmarksResponse = await response.json()
 
-        if (append) {
-          setBookmarks((prev) => [...prev, ...data.results])
-        } else {
-          setBookmarks(data.results)
-        }
+        // Cache the response
+        bookmarksCache.set(cacheKey, {
+          data,
+          timestamp: Date.now(),
+        })
 
+        setBookmarks(data.results)
         setTotalCount(data.count || 0)
-        setHasMore(!!data.next)
-        setCurrentPage(page)
       } catch (err) {
-        setError(err instanceof Error ? err.message : "An error occurred")
+        if (err instanceof Error && err.name !== 'AbortError') {
+          setError(err.message)
+        }
       } finally {
+        const endTime = performance.now()
+        setLoadingTime(Math.round(endTime - startTime))
         setLoading(false)
       }
     },
@@ -62,29 +95,45 @@ export function useBookmarks(filters: SearchFilters, enabled = true): UseBookmar
   // Reset and fetch when filters change
   useEffect(() => {
     if (!enabled) return
-    setCurrentPage(1)
-    fetchBookmarks(1, false)
+    fetchBookmarks()
   }, [fetchBookmarks, enabled])
 
-  const loadMore = useCallback(() => {
-    if (!loading && hasMore && enabled) {
-      fetchBookmarks(currentPage + 1, true)
+  // Cleanup function to abort requests and clear cache periodically
+  useEffect(() => {
+    const cleanup = () => {
+      // Clear old cache entries (older than TTL)
+      const now = Date.now()
+      for (const [key, value] of bookmarksCache.entries()) {
+        if (now - value.timestamp > CACHE_TTL) {
+          bookmarksCache.delete(key)
+        }
+      }
     }
-  }, [loading, hasMore, currentPage, fetchBookmarks, enabled])
+
+    const interval = setInterval(cleanup, CACHE_TTL)
+
+    return () => {
+      clearInterval(interval)
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
+  }, [])
 
   const refresh = useCallback(() => {
     if (!enabled) return
-    setCurrentPage(1)
-    fetchBookmarks(1, false)
-  }, [fetchBookmarks, enabled])
+    // Clear cache for this filter set when refreshing
+    const cacheKey = JSON.stringify(filters)
+    bookmarksCache.delete(cacheKey)
+    fetchBookmarks()
+  }, [fetchBookmarks, enabled, filters])
 
   return {
     bookmarks,
     loading,
     error,
     totalCount,
-    hasMore,
-    loadMore,
+    loadingTime,
     refresh,
   }
 }

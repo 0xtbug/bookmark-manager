@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import type { Bookmark } from "@/lib/types"
 import { formatRelativeTime, getHostname, truncateText } from "@/lib/format"
+import Image from "next/image"
 
 interface BookmarkCardProps {
   bookmark: Bookmark
@@ -40,7 +41,7 @@ export function BookmarkCard({ bookmark, onTagClick }: BookmarkCardProps) {
   return (
     <TooltipProvider>
       <Card
-        className="group cursor-pointer transition-all duration-300 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-1 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 bg-card/50 backdrop-blur-sm border-border/50 hover:border-border h-full"
+        className="group cursor-pointer transition-all duration-300 hover:shadow-lg hover:shadow-primary/10 md:hover:-translate-y-1 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 bg-card/50 backdrop-blur-sm border-border/50 hover:border-border h-full"
         tabIndex={0}
         onKeyDown={handleKeyDown}
         role="article"
@@ -71,7 +72,7 @@ export function BookmarkCard({ bookmark, onTagClick }: BookmarkCardProps) {
             <div className="flex items-start gap-3">
               <div className="flex-shrink-0 mt-0.5">
                 {bookmark.favicon_url ? (
-                  <img src={bookmark.favicon_url || "/placeholder.svg"} alt="" className="w-4 h-4 rounded-sm" />
+                  <Image src={bookmark.favicon_url || "/placeholder.svg"} alt="" className="w-4 h-4 rounded-sm" />
                 ) : (
                   <Globe className="w-4 h-4 text-muted-foreground" />
                 )}
@@ -96,7 +97,7 @@ export function BookmarkCard({ bookmark, onTagClick }: BookmarkCardProps) {
                   <Badge
                     key={tag}
                     variant="secondary"
-                    className="text-xs cursor-pointer hover:bg-primary hover:text-primary-foreground transition-all duration-200 hover:scale-105 bg-secondary/60"
+                    className="text-xs cursor-pointer hover:bg-primary hover:text-primary-foreground transition-all duration-200 md:hover:scale-105 bg-secondary/60"
                     onClick={(e) => {
                       e.stopPropagation()
                       onTagClick?.(tag)
@@ -119,13 +120,13 @@ export function BookmarkCard({ bookmark, onTagClick }: BookmarkCardProps) {
                 <span className="font-medium">{formatRelativeTime(bookmark.date_added)}</span>
               </div>
 
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="h-8 w-8 p-0 hover:bg-primary hover:text-primary-foreground transition-all duration-200"
+                      className="h-8 w-8 p-0 hover:bg-secondary transition-all duration-200"
                       onClick={(e) => {
                         e.stopPropagation()
                         handleOpenLink()

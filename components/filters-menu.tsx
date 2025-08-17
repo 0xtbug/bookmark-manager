@@ -28,7 +28,7 @@ export function FiltersMenu({ filters, onFiltersChange, activeFiltersCount = 0 }
     { value: "title-desc", label: "Title Z-A" },
   ] as const
 
-  const currentSortLabel = sortOptions.find((option) => option.value === filters.sort)?.label || "Newest first"
+//   const currentSortLabel = sortOptions.find((option) => option.value === filters.sort)?.label || "Newest first"
 
   const handleToggleFilter = (key: keyof SearchFilters, value: boolean) => {
     onFiltersChange({ [key]: value ? true : undefined })

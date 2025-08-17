@@ -26,7 +26,7 @@ function BookmarkManagerContent() {
     [filters, searchQuery],
   )
 
-  const { bookmarks, loading, error, totalCount, hasMore, loadMore, refresh } = useBookmarks(
+  const { bookmarks, loading, error, totalCount, loadingTime, refresh } = useBookmarks(
     combinedFilters,
     isReady, // Only fetch when URL sync is ready
   )
@@ -52,6 +52,13 @@ function BookmarkManagerContent() {
 
     return groups
   }, [bookmarks])
+
+  // Infinite scroll setup - no longer needed since we fetch all bookmarks at once
+  // const infiniteScrollRef = useInfiniteScroll({
+  //   hasMore,
+  //   loading: loadingMore,
+  //   loadMore,
+  // })
 
   const handleTagClick = useCallback(
     (tag: string) => {
@@ -85,12 +92,6 @@ function BookmarkManagerContent() {
     })
   }, [updateSearchQuery, updateFilters])
 
-  const handleLoadMore = useCallback(() => {
-    const nextPage = (filters.page || 1) + 1
-    updateFilters({ page: nextPage })
-    loadMore()
-  }, [filters.page, updateFilters, loadMore])
-
   // Count active filters
   const activeFiltersCount = useMemo(() => {
     let count = 0
@@ -110,7 +111,7 @@ function BookmarkManagerContent() {
         <HeaderBar
           searchQuery=""
           onSearchChange={() => {}}
-          filters={{ sort: "new", page: 1 }}
+          filters={{ sort: "new" }}
           onFiltersChange={() => {}}
           onTagsPanelToggle={() => {}}
           activeFiltersCount={0}
@@ -169,7 +170,7 @@ function BookmarkManagerContent() {
           <div className="mb-8 flex items-center justify-between animate-in fade-in-50 duration-500">
             <div>
               <p className="text-sm text-muted-foreground">
-                {totalCount === 0 ? "No bookmarks found" : `${totalCount} bookmark${totalCount === 1 ? "" : "s"} found`}
+                {totalCount === 0 ? "No bookmarks found" : `${totalCount} bookmark${totalCount === 1 ? "" : "s"} found in ${loadingTime}ms`}
               </p>
               {hasActiveFilters && (
                 <p className="text-xs text-muted-foreground/70 mt-1">
@@ -230,18 +231,7 @@ function BookmarkManagerContent() {
               ))}
             </div>
 
-            {/* Load more button */}
-            {hasMore && !loading && (
-              <div className="flex justify-center mt-12 animate-in fade-in-50 duration-500">
-                <Button
-                  onClick={handleLoadMore}
-                  variant="outline"
-                  className="bg-background hover:bg-muted transition-all duration-200 px-8 py-2"
-                >
-                  Load more bookmarks
-                </Button>
-              </div>
-            )}
+            {/* All bookmarks are loaded at once, no need for infinite scroll trigger */}
           </>
         )}
       </main>
