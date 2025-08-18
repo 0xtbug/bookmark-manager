@@ -19,13 +19,13 @@ export const metadata: Metadata = {
     siteName: "Bookmark Manager",
     images: [
       {
-        url: "/og-img.png",
+        url: "/og-image.png",
         width: 800,
         height: 600,
         alt: "og image",
       },
       {
-        url: "/og-img.png",
+        url: "/og-image.png",
         width: 1800,
         height: 1600,
         alt: "og image",
