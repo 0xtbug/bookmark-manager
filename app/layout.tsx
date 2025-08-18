@@ -9,6 +9,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 export const metadata: Metadata = {
   title: "Bookmark Manager",
   description: "A modern, responsive bookmark manager built with Next.js",
+  category: "technology",
   icons: {
     icon: "/cat.png",
   },
