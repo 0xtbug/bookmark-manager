@@ -66,7 +66,7 @@ A sleek and modern public client for Linkding, built with Next.js 15, React 19, 
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/bookmark-manager.git
+   git clone https://github.com/0xtbug/bookmark-manager.git
    cd bookmark-manager
    ```
 
