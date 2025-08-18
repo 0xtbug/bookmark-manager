@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/empty-state"
 import { BookmarkGridSkeleton } from "@/components/skeletons"
 import { TagsPanel } from "@/components/tags-panel"
 import { SelectedTagsBar } from "@/components/selected-tags-bar"
+import { ScrollToTop } from "@/components/scroll-to-top"
 import { Button } from "@/components/ui/button"
 import { useBookmarks } from "@/hooks/use-bookmarks"
 import { useUrlSync } from "@/hooks/use-url-sync"
@@ -119,6 +120,7 @@ function BookmarkManagerContent() {
         <main className="container mx-auto px-4 py-8">
           <BookmarkGridSkeleton />
         </main>
+        <ScrollToTop />
       </div>
     )
   }
@@ -142,6 +144,7 @@ function BookmarkManagerContent() {
             </Button>
           </div>
         </div>
+        <ScrollToTop />
       </div>
     )
   }
@@ -245,6 +248,9 @@ function BookmarkManagerContent() {
         onTagRemove={handleTagRemove}
         bookmarks={bookmarks}
       />
+
+      {/* Scroll to top button */}
+      <ScrollToTop />
     </div>
   )
 }
@@ -257,6 +263,7 @@ export default function HomePage() {
           <div className="container mx-auto px-4 py-8">
             <BookmarkGridSkeleton />
           </div>
+          <ScrollToTop />
         </div>
       }
     >
