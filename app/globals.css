@@ -1,6 +1,5 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
-@import url('https://fonts.googleapis.com/css2?family=Pacifico&display=swap');
 
 :root {
   --background: oklch(0.9399 0.0203 345.6985);
@@ -151,12 +150,6 @@
   --shadow-2xl: var(--shadow-2xl);
 }
 
-.mystyle {
-    font-family: "Pacifico", cursive;
-    font-weight: 400;
-    font-style: normal;
-}
-
 @layer base {
     * {
         @apply border-border outline-ring/50;
@@ -164,14 +157,4 @@
   body {
       @apply bg-background text-foreground;
   }
-}
-
-/* Smooth theme transitions */
-* {
-  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
-}
-
-/* Prevent flash of wrong theme */
-html {
-  color-scheme: light dark;
 }

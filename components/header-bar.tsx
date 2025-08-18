@@ -36,7 +36,7 @@ export function HeaderBar({
                 <Cat className="w-4 h-4 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-xl font-semibold tracking-tight text-foreground mystyle">
+                <h1 className="text-xl font-semibold tracking-tight text-foreground">
                   Bookmark Manager
                 </h1>
               </div>
@@ -69,7 +69,7 @@ export function HeaderBar({
                 <div className="w-7 h-7 bg-gradient-to-br from-primary to-primary/80 rounded-md flex items-center justify-center shadow-sm">
                   <Cat className="w-3.5 h-3.5 text-primary-foreground" />
                 </div>
-                <h1 className="text-lg font-semibold tracking-tight text-foreground mystyle">
+                <h1 className="text-lg font-semibold tracking-tight text-foreground">
                   Bookmarks
                 </h1>
               </div>
