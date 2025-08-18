@@ -56,18 +56,18 @@ export function SearchInput({
         onChange={(e) => setLocalValue(e.target.value)}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
-        className="pl-10 pr-10 bg-background/50 border-border/50 focus:bg-background focus:border-border transition-all duration-200"
+        className="pl-10 pr-10 h-9 bg-background border-input focus:border-ring focus:ring-1 focus:ring-ring/20 transition-all duration-200"
         aria-label="Search bookmarks"
       />
       {localValue && (
         <Button
           size="sm"
           variant="ghost"
-          className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0 hover:bg-muted transition-all duration-200 opacity-0 group-hover:opacity-100 focus:opacity-100"
+          className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0 hover:bg-accent hover:text-accent-foreground transition-all duration-200 opacity-0 group-hover:opacity-100 focus:opacity-100"
           onClick={handleClear}
           aria-label="Clear search"
         >
-          <X className="w-3 h-3" />
+          <X className="w-3.5 h-3.5" />
         </Button>
       )}
     </div>
