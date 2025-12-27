@@ -1,33 +1,31 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import type { Bookmark, BookmarksResponse, SearchFilters } from "@/lib/types"
-import { buildSearchParams } from "@/lib/query-state"
-
-// In-memory cache for bookmarks
-const bookmarksCache = new Map<string, { data: BookmarksResponse; timestamp: number }>()
-const CACHE_TTL = 5 * 60 * 1000 // 5 minutes cache
 
 interface UseBookmarksResult {
   bookmarks: Bookmark[]
+  allBookmarks: Bookmark[]
   loading: boolean
   error: string | null
   totalCount: number
-  loadingTime: number
   refresh: () => void
 }
 
-export function useBookmarks(filters: SearchFilters, enabled = true): UseBookmarksResult {
-  const [bookmarks, setBookmarks] = useState<Bookmark[]>([])
+export function useBookmarks(
+  filters: SearchFilters,
+  enabled = true
+): UseBookmarksResult {
+  const [allBookmarks, setAllBookmarks] = useState<Bookmark[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [totalCount, setTotalCount] = useState(0)
-  const [loadingTime, setLoadingTime] = useState(0)
   const abortControllerRef = useRef<AbortController | null>(null)
+  const hasFetchedRef = useRef(false)
 
-  const fetchBookmarks = useCallback(
-    async () => {
+  const fetchAllBookmarks = useCallback(
+    async (forceRefresh = false) => {
       if (!enabled) return
+      if (hasFetchedRef.current && !forceRefresh) return
 
       // Cancel any ongoing requests
       if (abortControllerRef.current) {
@@ -35,34 +33,13 @@ export function useBookmarks(filters: SearchFilters, enabled = true): UseBookmar
       }
       abortControllerRef.current = new AbortController()
 
-      const startTime = performance.now()
-      const cacheKey = JSON.stringify(filters)
-
       try {
         setError(null)
-
-        // Check cache first
-        const cached = bookmarksCache.get(cacheKey)
-        if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-          // Use cached data but still set loading for UI feedback
-          setBookmarks(cached.data.results)
-          setTotalCount(cached.data.count || 0)
-          const endTime = performance.now()
-          setLoadingTime(Math.round(endTime - startTime))
-          setLoading(false)
-          return
-        }
-
         setLoading(true)
 
-        const searchParams = buildSearchParams(filters)
-        const response = await fetch(`/api/bookmarks?${searchParams}`, {
+        const response = await fetch(`/api/bookmarks`, {
           signal: abortControllerRef.current.signal,
-          // Add performance headers
-          headers: {
-            'Accept': 'application/json',
-            'Cache-Control': 'no-cache',
-          },
+          headers: { 'Accept': 'application/json' },
         })
 
         if (!response.ok) {
@@ -70,50 +47,75 @@ export function useBookmarks(filters: SearchFilters, enabled = true): UseBookmar
         }
 
         const data: BookmarksResponse = await response.json()
-
-        // Cache the response
-        bookmarksCache.set(cacheKey, {
-          data,
-          timestamp: Date.now(),
-        })
-
-        setBookmarks(data.results)
-        setTotalCount(data.count || 0)
+        setAllBookmarks(data.results)
+        hasFetchedRef.current = true
       } catch (err) {
         if (err instanceof Error && err.name !== 'AbortError') {
           setError(err.message)
         }
       } finally {
-        const endTime = performance.now()
-        setLoadingTime(Math.round(endTime - startTime))
         setLoading(false)
       }
     },
-    [filters, enabled],
+    [enabled],
   )
 
-  // Reset and fetch when filters change
   useEffect(() => {
     if (!enabled) return
-    fetchBookmarks()
-  }, [fetchBookmarks, enabled])
+    fetchAllBookmarks()
+  }, [fetchAllBookmarks, enabled])
 
-  // Cleanup function to abort requests and clear cache periodically
-  useEffect(() => {
-    const cleanup = () => {
-      // Clear old cache entries (older than TTL)
-      const now = Date.now()
-      for (const [key, value] of bookmarksCache.entries()) {
-        if (now - value.timestamp > CACHE_TTL) {
-          bookmarksCache.delete(key)
-        }
-      }
+  const bookmarks = useMemo(() => {
+    let result = allBookmarks
+
+    // Filter by search query
+    const searchQuery = filters.q?.toLowerCase() || ""
+    if (searchQuery) {
+      result = result.filter(bookmark =>
+        bookmark.title?.toLowerCase().includes(searchQuery) ||
+        bookmark.url?.toLowerCase().includes(searchQuery) ||
+        bookmark.description?.toLowerCase().includes(searchQuery) ||
+        bookmark.tag_names?.some(tag => tag.toLowerCase().includes(searchQuery))
+      )
     }
 
-    const interval = setInterval(cleanup, CACHE_TTL)
+    // Filter by tags (AND logic)
+    if (filters.tags && filters.tags.length > 0) {
+      result = result.filter(bookmark =>
+        filters.tags!.every(tag => bookmark.tag_names?.includes(tag))
+      )
+    }
 
+    // Filter by archived/unread/shared
+    if (filters.archived === true) {
+      result = result.filter(b => b.is_archived === true)
+    } else if (filters.archived === false) {
+      result = result.filter(b => b.is_archived === false)
+    }
+    if (filters.unread === true) {
+      result = result.filter(b => b.unread === true)
+    }
+    if (filters.shared === true) {
+      result = result.filter(b => b.shared === true)
+    }
+
+    // Sort
+    if (filters.sort === "old") {
+      result = [...result].sort((a, b) =>
+        new Date(a.date_added).getTime() - new Date(b.date_added).getTime()
+      )
+    } else {
+      result = [...result].sort((a, b) =>
+        new Date(b.date_added).getTime() - new Date(a.date_added).getTime()
+      )
+    }
+
+    return result
+  }, [allBookmarks, filters.q, filters.tags, filters.archived, filters.unread, filters.shared, filters.sort])
+
+  // Cleanup
+  useEffect(() => {
     return () => {
-      clearInterval(interval)
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()
       }
@@ -122,18 +124,16 @@ export function useBookmarks(filters: SearchFilters, enabled = true): UseBookmar
 
   const refresh = useCallback(() => {
     if (!enabled) return
-    // Clear cache for this filter set when refreshing
-    const cacheKey = JSON.stringify(filters)
-    bookmarksCache.delete(cacheKey)
-    fetchBookmarks()
-  }, [fetchBookmarks, enabled, filters])
+    hasFetchedRef.current = false
+    fetchAllBookmarks(true)
+  }, [fetchAllBookmarks, enabled])
 
   return {
     bookmarks,
+    allBookmarks,
     loading,
     error,
-    totalCount,
-    loadingTime,
+    totalCount: bookmarks.length,
     refresh,
   }
 }

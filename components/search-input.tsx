@@ -16,12 +16,11 @@ export function SearchInput({
   value = "",
   onChange,
   placeholder = "Search bookmarks...",
-  debounceMs = 250,
+  debounceMs = 100,
 }: SearchInputProps) {
   const [localValue, setLocalValue] = useState(value)
   const [isFocused, setIsFocused] = useState(false)
 
-  // Sync with external value changes
   useEffect(() => {
     setLocalValue(value)
   }, [value])

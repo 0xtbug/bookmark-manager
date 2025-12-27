@@ -18,7 +18,6 @@ function BookmarkManagerContent() {
   const [showTagsPanel, setShowTagsPanel] = useState(false)
   const { filters, searchQuery, updateFilters, updateSearchQuery, isReady } = useUrlSync()
 
-  // Combine search query with filters for API calls
   const combinedFilters = useMemo(
     () => ({
       ...filters,
@@ -27,10 +26,11 @@ function BookmarkManagerContent() {
     [filters, searchQuery],
   )
 
-  const { bookmarks, loading, error, totalCount, loadingTime, refresh } = useBookmarks(
+  const { bookmarks, allBookmarks, loading, error, totalCount, refresh } = useBookmarks(
     combinedFilters,
-    isReady, // Only fetch when URL sync is ready
+    isReady,
   )
+
 
   const groupedBookmarks = useMemo(() => {
     if (bookmarks.length === 0) return {}
@@ -39,11 +39,9 @@ function BookmarkManagerContent() {
 
     bookmarks.forEach((bookmark) => {
       if (bookmark.tag_names.length === 0) {
-        // Bookmarks without tags go to "Untagged" group
         if (!groups["Untagged"]) groups["Untagged"] = []
         groups["Untagged"].push(bookmark)
       } else {
-        // Add bookmark to each of its tag groups
         bookmark.tag_names.forEach((tag) => {
           if (!groups[tag]) groups[tag] = []
           groups[tag].push(bookmark)
@@ -53,13 +51,6 @@ function BookmarkManagerContent() {
 
     return groups
   }, [bookmarks])
-
-  // Infinite scroll setup - no longer needed since we fetch all bookmarks at once
-  // const infiniteScrollRef = useInfiniteScroll({
-  //   hasMore,
-  //   loading: loadingMore,
-  //   loadMore,
-  // })
 
   const handleTagClick = useCallback(
     (tag: string) => {
@@ -173,7 +164,11 @@ function BookmarkManagerContent() {
           <div className="mb-8 flex items-center justify-between animate-in fade-in-50 duration-500">
             <div>
               <p className="text-sm text-muted-foreground">
-                {totalCount === 0 ? "No bookmarks found" : `${totalCount} bookmark${totalCount === 1 ? "" : "s"} found in ${loadingTime}ms`}
+                {totalCount === 0
+                  ? "No bookmarks found"
+                  : searchQuery
+                    ? `${totalCount} of ${allBookmarks.length} bookmark${allBookmarks.length === 1 ? "" : "s"} match`
+                    : `${totalCount} bookmark${totalCount === 1 ? "" : "s"} found`}
               </p>
               {hasActiveFilters && (
                 <p className="text-xs text-muted-foreground/70 mt-1">

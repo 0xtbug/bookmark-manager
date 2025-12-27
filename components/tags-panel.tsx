@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { Search, X, Loader2 } from "lucide-react"
+import { Search, X } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -24,17 +24,15 @@ interface TagsPanelProps {
 
 export function TagsPanel({ open, onOpenChange, selectedTags, onTagClick, onTagRemove, bookmarks }: TagsPanelProps) {
   const [searchQuery, setSearchQuery] = useState("")
-  const { tags, loading, error, hasMore, loadMore } = useTags()
+  const { tags, loading, error } = useTags()
   const tagCounts = useTagCounts(bookmarks)
 
-  // Filter tags based on search query
   const filteredTags = useMemo(() => {
     if (!searchQuery.trim()) return tags
     const lowercaseQuery = searchQuery.toLowerCase()
     return tags.filter((tag) => tag.name.toLowerCase().includes(lowercaseQuery))
   }, [tags, searchQuery])
 
-  // Sort tags by usage count (descending) then alphabetically
   const sortedTags = useMemo(() => {
     return [...filteredTags].sort((a, b) => {
       const countA = tagCounts[a.name] || 0
@@ -131,22 +129,6 @@ export function TagsPanel({ open, onOpenChange, selectedTags, onTagClick, onTagR
                     showCounts={true}
                     tagCounts={tagCounts}
                   />
-
-                  {/* Load more button */}
-                  {hasMore && (
-                    <div className="flex justify-center pt-4">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={loadMore}
-                        disabled={loading}
-                        className="gap-2 bg-transparent"
-                      >
-                        {loading && <Loader2 className="w-3 h-3 animate-spin" />}
-                        Load more tags
-                      </Button>
-                    </div>
-                  )}
                 </div>
               )}
             </ScrollArea>

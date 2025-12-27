@@ -20,12 +20,11 @@ export function useUrlSync(): UseUrlSyncResult {
   const [searchQuery, setSearchQuery] = useState("")
   const [filters, setFilters] = useState<SearchFilters>({
     sort: "new",
-    page: 1,
   })
 
   const filtersRef = useRef(filters)
   const searchQueryRef = useRef(searchQuery)
-  const isUpdatingRef = useRef(false)
+  const urlUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Update refs when state changes
   useEffect(() => {
@@ -36,8 +35,9 @@ export function useUrlSync(): UseUrlSyncResult {
     searchQueryRef.current = searchQuery
   }, [searchQuery])
 
+  // Parse URL on mount
   useEffect(() => {
-    if (!isReady && !isUpdatingRef.current) {
+    if (!isReady) {
       const urlFilters = parseSearchParams(searchParams)
       setFilters(urlFilters)
       setSearchQuery(urlFilters.q || "")
@@ -45,39 +45,42 @@ export function useUrlSync(): UseUrlSyncResult {
     }
   }, [searchParams, isReady])
 
+  // Debounced URL update - only update URL after 500ms of no changes
   const updateUrl = useCallback(
     (newFilters: SearchFilters, newSearchQuery: string) => {
-      isUpdatingRef.current = true
-
-      const combinedFilters = {
-        ...newFilters,
-        q: newSearchQuery || undefined,
+      if (urlUpdateTimeoutRef.current) {
+        clearTimeout(urlUpdateTimeoutRef.current)
       }
 
-      const params = buildSearchParams(combinedFilters)
-      const url = params.toString() ? `?${params.toString()}` : "/"
+      urlUpdateTimeoutRef.current = setTimeout(() => {
+        const combinedFilters = {
+          ...newFilters,
+          q: newSearchQuery || undefined,
+        }
 
-      // Use replace for same-page updates to avoid cluttering browser history
-      router.replace(url, { scroll: false })
+        const params = buildSearchParams(combinedFilters)
+        const url = params.toString() ? `?${params.toString()}` : "/"
 
-      // Reset the updating flag after a brief delay
-      setTimeout(() => {
-        isUpdatingRef.current = false
-      }, 100)
+        router.replace(url, { scroll: false })
+      }, 500)
     },
     [router],
   )
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (urlUpdateTimeoutRef.current) {
+        clearTimeout(urlUpdateTimeoutRef.current)
+      }
+    }
+  }, [])
 
   const updateFilters = useCallback(
     (newFilters: Partial<SearchFilters>) => {
       const currentFilters = filtersRef.current
       const currentSearchQuery = searchQueryRef.current
       const updatedFilters = { ...currentFilters, ...newFilters }
-
-      // Reset page when filters change (except when explicitly updating page)
-      if (!("page" in newFilters)) {
-        updatedFilters.page = 1
-      }
 
       setFilters(updatedFilters)
       updateUrl(updatedFilters, currentSearchQuery)
@@ -89,10 +92,7 @@ export function useUrlSync(): UseUrlSyncResult {
     (query: string) => {
       const currentFilters = filtersRef.current
       setSearchQuery(query)
-      // Reset page when search changes
-      const updatedFilters = { ...currentFilters, page: 1 }
-      setFilters(updatedFilters)
-      updateUrl(updatedFilters, query)
+      updateUrl(currentFilters, query)
     },
     [updateUrl],
   )

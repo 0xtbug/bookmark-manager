@@ -1,14 +1,12 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import type { Tag, TagsResponse } from "@/lib/types"
 
 interface UseTagsResult {
   tags: Tag[]
   loading: boolean
   error: string | null
-  hasMore: boolean
-  loadMore: () => void
   refresh: () => void
   searchTags: (query: string) => Tag[]
 }
@@ -17,32 +15,24 @@ export function useTags(): UseTagsResult {
   const [tags, setTags] = useState<Tag[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [hasMore, setHasMore] = useState(false)
-  const [currentOffset, setCurrentOffset] = useState(0)
+  const hasFetchedRef = useRef(false)
 
-  const fetchTags = useCallback(async (offset = 0, append = false) => {
+  const fetchAllTags = useCallback(async (forceRefresh = false) => {
+    if (hasFetchedRef.current && !forceRefresh) return
+
     try {
-      if (!append) {
-        setLoading(true)
-      }
       setError(null)
+      setLoading(true)
 
-      const response = await fetch(`/api/tags?limit=100&offset=${offset}`)
+      const response = await fetch(`/api/tags?limit=1000`)
 
       if (!response.ok) {
         throw new Error("Failed to fetch tags")
       }
 
       const data: TagsResponse = await response.json()
-
-      if (append) {
-        setTags((prev) => [...prev, ...data.results])
-      } else {
-        setTags(data.results)
-      }
-
-      setHasMore(!!data.next)
-      setCurrentOffset(offset)
+      setTags(data.results)
+      hasFetchedRef.current = true
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred")
     } finally {
@@ -50,27 +40,21 @@ export function useTags(): UseTagsResult {
     }
   }, [])
 
-  // Initial fetch
   useEffect(() => {
-    fetchTags(0, false)
-  }, [fetchTags])
-
-  const loadMore = useCallback(() => {
-    if (!loading && hasMore) {
-      fetchTags(currentOffset + 100, true)
-    }
-  }, [loading, hasMore, currentOffset, fetchTags])
+    fetchAllTags()
+  }, [fetchAllTags])
 
   const refresh = useCallback(() => {
-    setCurrentOffset(0)
-    fetchTags(0, false)
-  }, [fetchTags])
+    hasFetchedRef.current = false
+    fetchAllTags(true)
+  }, [fetchAllTags])
 
+  // Client-side tag search
   const searchTags = useCallback(
     (query: string): Tag[] => {
       if (!query.trim()) return tags
-      const lowercaseQuery = query.toLowerCase()
-      return tags.filter((tag) => tag.name.toLowerCase().includes(lowercaseQuery))
+      const q = query.toLowerCase()
+      return tags.filter((tag) => tag.name.toLowerCase().includes(q))
     },
     [tags],
   )
@@ -79,8 +63,6 @@ export function useTags(): UseTagsResult {
     tags,
     loading,
     error,
-    hasMore,
-    loadMore,
     refresh,
     searchTags,
   }
